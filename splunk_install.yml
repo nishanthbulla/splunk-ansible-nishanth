@@ -1,0 +1,55 @@
+---
+- name: Install Splunk Enterprise on GCP Instances
+  hosts: splunk_servers
+  become: yes
+  vars:
+    splunk_url: "https://download.splunk.com/products/splunk/releases/9.2.0/linux/splunk-9.2.0-c0bf0a180c64-Linux-x86_64.tgz"
+    splunk_home: "/opt/splunk"
+    splunk_user: "splunk"
+
+  tasks:
+    - name: Ensure required packages are installed
+      apt:
+        name: wget
+        state: present
+      when: ansible_os_family == "Ubuntu"
+
+    - name: Ensure required packages are installed
+      yum:
+        name: wget
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Create Splunk user
+      user:
+        name: "{{ splunk_user }}"
+        shell: /bin/bash
+        create_home: yes
+
+    - name: Create /opt directory
+      file:
+        path: /opt
+        state: directory
+        owner: "{{ splunk_user }}"
+        group: "{{ splunk_user }}"
+
+    - name: Download Splunk
+      get_url:
+        url: "{{ splunk_url }}"
+        dest: /tmp/splunk.tgz
+        mode: '0644'
+
+    - name: Extract Splunk
+      unarchive:
+        src: /tmp/splunk.tgz
+        dest: /opt
+        remote_src: yes
+        owner: "{{ splunk_user }}"
+        group: "{{ splunk_user }}"
+
+    - name: Start Splunk for first time
+      command: "{{ splunk_home }}/bin/splunk start --accept-license --answer-yes --no-prompt"
+      become_user: "{{ splunk_user }}"
+
+    - name: Enable Splunk boot-start
+      command: "{{ splunk_home }}/bin/splunk enable boot-start -user {{ splunk_user }}"
